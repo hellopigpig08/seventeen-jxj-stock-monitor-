@@ -8,7 +8,7 @@ from email.header import Header
 PRODUCT_URL = "https://seventeenshopus.com/collections/jxj-1st-mini-album-dreamscapes/products/jxj-1st-mini-album-dreamscape-daydreamers-ver-signed-ver"
 JSON_URL = PRODUCT_URL + ".js"
 
-# 從 GitHub Secrets 讀取 Email 設定
+# 從 GitHub Secrets / 環境變數讀取
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL")
 SENDER_PASSWORD = os.environ.get("SENDER_PASSWORD")
 RECEIVER_EMAIL = os.environ.get("RECEIVER_EMAIL")
@@ -20,29 +20,34 @@ def check_stock():
     
     try:
         response = requests.get(JSON_URL, headers=headers, timeout=10)
-        if response.status_code != 200:
-            print(f"無法取得網頁資料，Status Code: {response.status_code}")
-            return
+        response.raise_for_status()
             
         data = response.json()
         title = data.get("title", "JxJ Signed Album")
-        
-        # 檢查所有款式/Variant 是否有貨
         variants = data.get("variants", [])
-        is_available = any(variant.get("available", False) for variant in variants)
+        
+        # 找出所有有貨的特定款式 (Variants)
+        available_variants = [v.get("title") for v in variants if v.get("available", False)]
         
         print(f"商品名稱: {title}")
-        print(f"現時庫存狀態: {'有貨 (Available)' if is_available else '缺貨 (Sold Out)'}")
         
-        if is_available:
-            send_email_notification(title)
+        if available_variants:
+            available_str = ", ".join(available_variants)
+            print(f"現時庫存狀態: 有貨 (Available) - 款式: {available_str}")
+            send_email_notification(title, available_str)
+        else:
+            print("現時庫存狀態: 缺貨 (Sold Out)")
             
     except Exception as e:
         print(f"檢查時發生錯誤: {e}")
 
-def send_email_notification(product_title):
+def send_email_notification(product_title, available_info):
+    if not all([SENDER_EMAIL, SENDER_PASSWORD, RECEIVER_EMAIL]):
+        print("❌ 錯誤: 未設定完整 Email 環境變數 (SENDER_EMAIL / SENDER_PASSWORD / RECEIVER_EMAIL)")
+        return
+
     subject = f"🚨 Restock 補貨提醒: {product_title}"
-    body = f"你關注嘅商品已經補貨啦！\n\n商品名稱：{product_title}\n發售/購買連結：{PRODUCT_URL}"
+    body = f"你關注嘅商品已經補貨啦！\n\n商品名稱：{product_title}\n有貨款式：{available_info}\n發售/購買連結：{PRODUCT_URL}"
     
     msg = MIMEText(body, 'plain', 'utf-8')
     msg['Subject'] = Header(subject, 'utf-8')
