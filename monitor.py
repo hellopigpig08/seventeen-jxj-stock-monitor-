@@ -1,4 +1,5 @@
 import os
+import sys
 import smtplib
 import requests
 from email.mime.text import MIMEText
@@ -8,7 +9,7 @@ from email.header import Header
 PRODUCT_URL = "https://seventeenshopus.com/collections/jxj-1st-mini-album-dreamscapes/products/jxj-1st-mini-album-dreamscape-daydreamers-ver-signed-ver"
 JSON_URL = PRODUCT_URL + ".js"
 
-# 從 GitHub Secrets / 環境變數讀取
+# 從 GitHub Secrets 讀取 Email 設定
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL")
 SENDER_PASSWORD = os.environ.get("SENDER_PASSWORD")
 RECEIVER_EMAIL = os.environ.get("RECEIVER_EMAIL")
@@ -26,20 +27,33 @@ def check_stock():
         title = data.get("title", "JxJ Signed Album")
         variants = data.get("variants", [])
         
-        # 找出所有有貨的特定款式 (Variants)
-        available_variants = [v.get("title") for v in variants if v.get("available", False)]
+        print(f"==========================================")
+        print(f"📦 檢查商品: {title}")
         
-        print(f"商品名稱: {title}")
+        # 印出所有 Variant 的詳細狀態（方便排查）
+        available_variants = []
+        for v in variants:
+            v_name = v.get("title", "Default")
+            v_avail = v.get("available", False)
+            v_price = v.get("price", 0) / 100
+            print(f" - 款式 [{v_name}]: Price=${v_price}, Available={v_avail}")
+            
+            if v_avail:
+                available_variants.append(v_name)
+                
+        print(f"==========================================")
         
+        # 判斷是否有貨
         if available_variants:
             available_str = ", ".join(available_variants)
-            print(f"現時庫存狀態: 有貨 (Available) - 款式: {available_str}")
+            print(f"🚨 庫存狀態: 【有貨！】- 款式: {available_str}")
             send_email_notification(title, available_str)
         else:
-            print("現時庫存狀態: 缺貨 (Sold Out)")
+            print("💤 庫存狀態: 【缺貨中 (Sold Out)】")
+            print("ℹ️ 提示：缺貨狀態下程式不會發送 Email，這是正常行為。")
             
     except Exception as e:
-        print(f"檢查時發生錯誤: {e}")
+        print(f"❌ 檢查時發生錯誤: {e}")
 
 def send_email_notification(product_title, available_info):
     if not all([SENDER_EMAIL, SENDER_PASSWORD, RECEIVER_EMAIL]):
@@ -47,7 +61,7 @@ def send_email_notification(product_title, available_info):
         return
 
     subject = f"🚨 Restock 補貨提醒: {product_title}"
-    body = f"你關注嘅商品已經補貨啦！\n\n商品名稱：{product_title}\n有貨款式：{available_info}\n發售/購買連結：{PRODUCT_URL}"
+    body = f"你關注嘅 SEVENTEEN 簽名版專輯補貨啦！\n\n商品名稱：{product_title}\n有貨款式：{available_info}\n搶購連結：{PRODUCT_URL}"
     
     msg = MIMEText(body, 'plain', 'utf-8')
     msg['Subject'] = Header(subject, 'utf-8')
