@@ -1,10 +1,10 @@
-name: Hourly Stock Monitor
+name: 5-Minute Stock Monitor
 
 on:
   schedule:
-    # 每 5 分鐘執行一次
+    # Cron 語法：每 5 分鐘觸發一次 (* 指任意時間，/5 代表每 5 分鐘)
     - cron: '*/5 * * * *'
-  workflow_dispatch:
+  workflow_dispatch: # 支援在 GitHub 介面手動按鈕觸發測試
 
 jobs:
   check-stock:
